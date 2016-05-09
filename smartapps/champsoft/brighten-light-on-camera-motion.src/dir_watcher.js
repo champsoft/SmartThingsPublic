@@ -3,13 +3,16 @@ var http = require('http');
 
 var prevFileName = '';
 var okToRun = true;
-var timerSeconds = 60;
-var logFile = '/home/pi/Video/dir_watcher.log';  //Change to your own log file
+// Allow watcher to reset 17 seconds after the light resets
+// it avoids the switching of lights to be detected as motion
+var timerSeconds = 197;
+var watchDir = '/mnt/picam'; //Use a location that the app has access to.
+var logFile = watchDir + '/dir_watcher.log';
 
 writeToLog(new Date + ': dir_watcher initiated, waiting for camera motion...\n' + 
 		'---------------------------------------------------------------------------------------------');
 
-fs.watch('/your/capture_dir', function(event, filename) {
+fs.watch(watchDir, function(event, filename) {
 	//writeToLog('event is: ' + event);
 	if (filename) {
 	// writeToLog('filename provided: ' + filename);
@@ -58,7 +61,7 @@ function writeToLog(message) {
 var options = {
 	hostname: 'localhost',
 	port: 80,
-	path:'/?access_token=place_your_access_token_here&motion_detect=true',
+	path:'/?access_token=your_access_token_goes_here&motion_detect=true',
 	agent: false
 };
 
