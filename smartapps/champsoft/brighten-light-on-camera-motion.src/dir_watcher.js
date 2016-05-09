@@ -57,7 +57,7 @@ function writeToLog(message) {
 
 var options = {
 	hostname: 'localhost',
-	port: 81,
+	port: 80,
 	path:'/?access_token=place_your_access_token_here&motion_detect=true',
 	agent: false
 };
