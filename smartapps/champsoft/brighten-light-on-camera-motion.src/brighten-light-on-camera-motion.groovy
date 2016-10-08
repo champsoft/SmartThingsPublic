@@ -36,19 +36,20 @@ preferences {
     }
 	section("Allow Endpoint to Control these bulbs...") {
 			input "hues", "capability.colorControl", title: "Which Set of Hue Bulbs?", required:true, multiple:true
-			input "delayMins", "enum", title: "Brightness Duration", required: true, options: [[1:"1 minute"], [2:"2 minutes"], [3:"3 minutes"], [4:"4 minutes"], [5:"5 minutes"]]
+			input "delayMins", "enum", title: "Brightness Duration", required: true, options: [[1:"1 minute"], [2:"2 minutes"], [3:"3 minutes"], [4:"4 minutes"], [5:"5 minutes"]], defaultValue: 3
             input "sunsetEnabled", "bool", title: "Enable Only At Sunset", required: true, defaultValue: true
 	}
     section("Choose light effects...") {
     		input "keepSameColor", "bool", title: "When brightened, keep the same color as when normal?", required: true, defaultValue: false
-			input "color", "enum", title: "or choose a Hue color?", required: true, multiple:false, options: [
-				["Soft White":"Soft White - Default"],
+			input "color", "enum", title: "or choose a Hue color?", required: false, multiple:false, defaultValue: "Blue", options: [
+				["Soft White":"Soft White"],
 				["White":"White - Concentrate"],
 				["Daylight":"Daylight - Energize"],
 				["Warm White":"Warm White - Relax"],
-				"Red","Green","Blue","Yellow","Orange","Purple","Pink"]
-			input "lightLevel", "enum", title: "Light Level?", required: true, options: [[10:"10%"],[20:"20%"],[30:"30%"],[40:"40%"],[50:"50%"],[60:"60%"],[70:"70%"],[80:"80%"],[90:"90%"],[100:"100%"]]
-            input "saturationLevel", "number", title: "Saturation Level?", description: "Between 1 and 100", required: true
+                ["Blue":"Blue - default"],
+				"Red","Green","Yellow","Orange","Purple","Pink"]
+			input "lightLevel", "enum", title: "Light Level?", required: false, options: [[10:"10%"],[20:"20%"],[30:"30%"],[40:"40%"],[50:"50%"],[60:"60%"],[70:"70%"],[80:"80%"],[90:"90%"],[100:"100%"]], defaultValue: 50
+            input "saturationLevel", "number", title: "Saturation Level?", description: "Between 1 and 100", required: false, defaultValue: 60
             
 	}
     section("Pause App on False Detections...") {
@@ -164,6 +165,9 @@ private convertColor() {
 		case "Red":
 			hueColor = 100
 			break;
+        default:
+        	hueColor = 70
+            saturation = 60
 	}
     return hueColor
 }
