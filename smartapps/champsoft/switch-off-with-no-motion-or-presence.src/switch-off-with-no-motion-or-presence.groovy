@@ -6,7 +6,7 @@
 
 /**
  * Edited by Champsoft
- * Made presence sensors optional
+ * Made presence sensors optional and include multiple motion sensors
  */
 definition(
     name: "Switch Off with No Motion or Presence",
@@ -23,7 +23,7 @@ preferences {
 		input "switches", "capability.switch", title: "Choose device switches", multiple: true
 	}
 	section("Turn off when there is no motion or presence") {
-		input "motionSensor", "capability.motionSensor", title: "Choose motion sensor"
+		input "motionSensors", "capability.motionSensor", title: "Choose motion sensor", multiple: true
    		input "presenceSensors", "capability.presenceSensor", title: "Choose presence sensors", multiple: true, required: false
 	}
 	section("Delay before turning off") {                    
@@ -32,7 +32,7 @@ preferences {
 }
 
 def installed() {
-	subscribe(motionSensor, "motion", motionHandler)
+	subscribe(motionSensors, "motion", motionHandler)
     if(presenceSensors) {
 		subscribe(presenceSensors, "presence", presenceHandler)
 	}
@@ -40,16 +40,16 @@ def installed() {
 
 def updated() {
 	unsubscribe()
-	subscribe(motionSensor, "motion", motionHandler)
+	subscribe(motionSensors, "motion", motionHandler)
     if(presenceSensors) {
 		subscribe(presenceSensors, "presence", presenceHandler)
 	}
 }
 
 def motionHandler(evt) {
-	log.debug "handler $evt.name: $evt.value"
+	log.debug "handler for $evt.displayName -> $evt.name: $evt.value"
 	if (evt.value == "inactive") {
-		runIn(delayMins * 60, scheduleCheck, [overwrite: false])
+		runIn(delayMins * 60, scheduleCheck)
 	}
 }
 
@@ -70,12 +70,28 @@ def isActivePresence() {
 
 def scheduleCheck() {
 	log.debug "scheduled check"
-	def motionState = motionSensor.currentState("motion")
-    if (motionState.value == "inactive") {
-        def elapsed = now() - motionState.rawDateCreated.time
-    	def threshold = 1000 * 60 * delayMins - 1000
-    	
-        if (elapsed >= threshold) {
+    
+    def allInactive = true
+    def latestTime = 0
+    
+	motionSensors.findAll{ sensor ->
+    	def motionState = sensor.currentState("motion")
+        //Set flag to false if one of the sensors is active
+        allInactive = motionState.value=="active"?false:allInactive
+        
+        def time = motionState.rawDateCreated.time
+        //When multiple sensors, use the latest inactive sensor
+        if(time > latestTime) {
+        	latestTime = time
+        }
+        log.debug "The time for $sensor.label = $time and it is $sensor.currentMotion"    
+    }
+    
+    if(allInactive) {
+    	def elapsed = now() - latestTime
+        def threshold = 1000 * 60 * delayMins - 1000
+
+    	if (elapsed >= threshold) {
 			if (!isActivePresence()) {
 				log.debug "Motion has stayed inactive since last check ($elapsed ms) and no presence:  turning switches off"
                 switches.findAll {
@@ -94,4 +110,4 @@ def scheduleCheck() {
     } else {
     	log.debug "Motion is active: do nothing"
     }
-}
+ }
