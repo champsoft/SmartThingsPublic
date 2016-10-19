@@ -47,10 +47,10 @@ preferences {
 	}
     section ("Set Brightness for motion/contact triggered light and on time after motion/contact stops") {
 
-        input "BrightLevelStr", "number", title: "Motion/Contact-Sensed Level %", required: true, 
+        input "BrightLevelStr", "number", title: "Brightness Level %", required: true, 
         	defaultValue: "100"
 
-        input "DelayMinStr", "number", title: "Bright Delay After Motion/Contact Stops, minutes", required: true, 
+        input "DelayMinStr", "number", title: "Switched On Delay After Motion/Contact Stops (minutes)", required: true, 
         	defaultValue: "5"
             
         input "setMode", "mode", title: "Enable Only During this Mode", required:false
@@ -211,7 +211,7 @@ def switchLightsOn() {
     switches.findAll {
     	if (it.currentSwitch == "off") {
         	log.debug "Switching ON: ${it.label}"
-  	       	it.on()
+  	       	it.setLevel(BrightLevelStr)
         }
         else
         	log.debug "Switch $it.label is already on, do nothing with it"
