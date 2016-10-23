@@ -18,6 +18,7 @@
  	This code is modified by champsoft, to meet specific location needs
     - Added sunrise and sunset mode features.
     - Removed app states that stored settings and switch, sensor status
+    - Added: if multiple motion sensors are used, use the one that deactivated the latest to switch off lights
  */
 
 definition(
@@ -47,10 +48,10 @@ preferences {
 	}
     section ("Set Brightness for motion/contact triggered light and on time after motion/contact stops") {
 
-        input "BrightLevelStr", "number", title: "Brightness Level %", required: true, 
+        input "brightness", "number", title: "Brightness Level %", required: true, 
         	defaultValue: "100"
 
-        input "DelayMinStr", "number", title: "Switched On Delay After Motion/Contact Stops (minutes)", required: true, 
+        input "delay", "number", title: "Switched On Delay After Motion/Contact Stops (minutes)", required: true, 
         	defaultValue: "5"
             
         input "setMode", "mode", title: "Enable Only During this Mode", required:false
@@ -58,7 +59,6 @@ preferences {
         //Added by Champsoft - to allow the option of motion to turn on the lights only between sunset and sunrise
         input "sunPositionEnabled", "bool", title: "Enable Only Between Sunset and Sunrise", required: true, 
         	defaultValue: false
-            
             }
   
     section ("Ignore motion/contact if lux is above this value") {
@@ -78,18 +78,18 @@ preferences {
 
 
 def installed() {
-	log.debug "Installed with settings: ${settings}"
+	log.trace "Installed with settings: ${settings}"
 	initialize()
 }
 
 def updated() {
-	log.debug "Updated with settings: ${settings}"
+	log.trace "Updated with settings: ${settings}"
 	unsubscribe()
 	initialize()
 }
 
 def initialize() {
-	log.debug "initialize()"
+	log.info "initialize()"
     subscribe(motions, "motion.active", handleContactEvent)
     subscribe(motions, "motion.inactive", handleEndContactEvent)
     subscribe(contacts, "contact.open", contactopen)
@@ -102,25 +102,25 @@ def initialize() {
 
 def LuxChange(evt) {
 	log.debug "LuxChange(evt)"
-	log.debug "Current Lux is $LightMeter.currentIlluminance"
+	log.trace "Current Lux is $LightMeter.currentIlluminance"
 
 	if(!LuxSetPoint1Str) {
-        log.debug "Luxmeter not used, do nothing." 
+        log.info "Luxmeter not used, do nothing." 
     }
     else {
         if(LightMeter.currentIlluminance > LuxSetPointStr) {
-            log.debug "Lights already turned off due to current lux over set lux, do nothing."
+            log.info "Lights already turned off due to current lux over set lux, do nothing."
         }
                          
         else {
-        	log.debug "Current Lux: ($LightMeter.currentIlluminance) Lux_Over_Setpoint: ($LuxSetPoint1Str)"
+        	log.trace "Current Lux: ($LightMeter.currentIlluminance) Lux_Over_Setpoint: ($LuxSetPoint1Str)"
             if(LightMeter.currentIlluminance > LuxSetPoint1Str) {
         		log.debug "It is too bright in the room, turning lights off."
             	//Placed on 2 second timer to make sure previously scheduled off timers are unscheduled
             	runIn(2, switchLightsOff)
         	}
          	else {
-        		log.debug "Current Lux ($LightMeter.currentIlluminance) below required Lux_Over_Setpoint ($LuxSetPoint1Str), doing nothing."
+        		log.trace "Current Lux ($LightMeter.currentIlluminance) below required Lux_Over_Setpoint ($LuxSetPoint1Str), doing nothing."
 
         	}
        }
@@ -128,93 +128,130 @@ def LuxChange(evt) {
 }
 
 def contactopen(evt) {
-	log.debug "Contact/Motion Activated"
+	log.info "Contact/Motion Activated"
 	handleContactEvent()
 }
 
 def contactclosed(evt) {
-	log.debug "Contact/Motion Deactivated"
+	log.info "Contact/Motion Deactivated"
 	handleEndContactEvent()
 }
 
 def handleContactEvent(evt) {
-	log.debug "Contact/Motion activated."
+	log.info "Contact/Motion activated."
 	if(settings.appEnabled) {
     	//If a mode is set, compare to current mode.
       	if((!settings.setMode) || (location.mode == settings.setMode)) {
     		// If the switch is on and sunset state is true, or if the switch is off
     		if((settings.sunPositionEnabled && isSunset()) || !settings.sunPositionEnabled) {
-        		log.debug "Current Lux: ($LightMeter.currentIlluminance), Setpoint: ($LuxSetPointStr)"
+        		log.trace "Current Lux: ($LightMeter.currentIlluminance), Setpoint: ($LuxSetPointStr)"
         		if(LightMeter.currentIlluminance < LuxSetPointStr) {
-        			log.debug "Current lux ($LightMeter.currentIlluminance) below Setpoint ($LuxSetPointStr), attempting to turn lights on."
+        			log.trace "Current lux ($LightMeter.currentIlluminance) below Setpoint ($LuxSetPointStr), attempting to turn lights on."
                     switchLightsOn()
          		}
         		else {
-        			log.debug "Current lux ($LightMeter.currentIlluminance) above Setpoint ($LuxSetPointStr), so doing nothing."
+        			log.trace "Current lux ($LightMeter.currentIlluminance) above Setpoint ($LuxSetPointStr), so doing nothing."
         		}
     		}
     		else {
-        		log.debug "Sensor activated but, it is not sunset, do nothing"
+        		log.info "Sensor activated but, it is not sunset, do nothing"
     		}
     	}
         else {
-        	log.debug "sensor activated, do nothing -> current mode = $location.mode, set mode = $settings.setMode"
+        	log.trace "sensor activated, do nothing -> current mode = $location.mode, set mode = $settings.setMode"
         }
 	}
     else {
-    	log.debug "App not enabled, do nothing"
+    	log.info "App not enabled, do nothing"
     }
 }
 
 def handleEndContactEvent(evt) {
 	log.debug "Contact/Motion deactivated."
+
 	if(settings.appEnabled) {
-    	//If a mode is set, compare to current mode.
+      	//If a mode is set, compare to current mode.
       	if((!settings.setMode) || (location.mode == settings.setMode)) {
-    		// If the switch is on and sunset state is true, or if the switch is off or the lights where switched on by this app
+    		// If the switch is on and sunset state is true
+            // state.lightSwitchedOn in case it is now sunrise and the lights wer switched on by this app
     		if((settings.sunPositionEnabled && isSunset()) || !settings.sunPositionEnabled || state.lightSwitchedOn) {
-    			runIn((DelayMinStr*60), switchLightsOff)
-    			log.debug "Starting OFF timer."
+    			if(state.lightSwitchedOn){
+                	runIn((delay*60), switchLightsOff)
+    				log.trace "Starting OFF timer."
                 }
+            }
     		else {
-        		log.debug "Sensor deactivated but, it is not sunset, do nothing"
+        		log.info "Sensor deactivated but, it is not sunset or the lights are not on. Do nothing"
     		}
     	}
         else {
-        	log.debug "sensor deactivated, do nothing -> current mode = $location.mode, set mode = $settings.setMode"
+        	log.info "sensor deactivated, do nothing -> current mode = $location.mode, set mode = $settings.setMode"
         }
 	}
     else {
-    	log.debug "App not enabled, do nothing"
+    	log.info "App not enabled, do nothing"
     }
 }
 
 def modeChangeHandler(evt) {
-	log.debug "Mode Changed... switching lights off"
-    runIn((DelayMinStr*60), switchLightsOff)
+	log.info "Mode Changed... scheduling an attempt to switch lights off"
+    runIn((delay*60), switchLightsOff)
 }
 
-def switchLightsOff() {   
-    switches.findAll {
-    	if (it.currentSwitch == "on") {
-        	log.debug "Switching OFF: ${it.label}"
-  	       	it.off()
+def switchLightsOff() {  
+	def allInactive = true
+    def latestTime = 0
+    
+    log.trace "Attempting to switch lights off..."
+	if(motions != null) {
+        motions.findAll{ sensor ->
+    		def motionState = sensor.currentState("motion")
+        	//Set flag to false if one of the sensors is active
+        	allInactive = motionState.value=="active"?false:allInactive
+        
+        	def time = motionState.rawDateCreated.time
+        	//When multiple sensors, use the latest inactive sensor
+        	if(time > latestTime) {
+        		latestTime = time
+        	}
+        	log.trace "The time for $sensor.label = $time and it is $sensor.currentMotion"    
+    	}
+     }
+     else {
+     	log.trace "No motion sensors found"
+     }
+        
+    if(allInactive) {
+    	def elapsed = now() - latestTime
+    	def threshold = 1000 * 60 * delay - 1000
+        if(elapsed >= threshold) {
+    		switches.findAll {
+    			if (it.currentSwitch == "on") {
+        			log.debug "Switching OFF: ${it.label}"
+  	       			it.off()
+       	 		}
+        		else
+        			log.debug "Switch $it.label is already off, do nothing with it"
+    		}
+        	state.lightSwitchedOn = false
+        } else {
+        	log.trace "Motion has not stayed inactive long enough since last check ($elapsed ms): do nothing"
         }
-        else
-        	log.debug "Switch $it.label is already off, do nothing with it"
+   	} 
+    else {
+    	log.info "Motion is active: do nothing"
     }
-    state.lightSwitchedOn = false
 }
 
 def switchLightsOn() {
 	unschedule(switchLightsOff)
     switches.findAll {
     	if (it.currentSwitch == "off") {
-        	log.debug "Switching ON: ${it.label}"
-  	       	it.setLevel(BrightLevelStr)
+        	log.trace "Switching ON: ${it.label}"
+  	       	it.setLevel(brightness)
         }
         else
-        	log.debug "Switch $it.label is already on, do nothing with it"
+        	log.info "Switch $it.label is already on, do nothing with it"
     }
     state.lightSwitchedOn = true
 }
@@ -235,11 +272,11 @@ def isSunset() {
     
      //Sunset state is true when the current time is between sunset and sunrise
     if(timeNow >= setTime.getTime() && timeNow < riseTime.getTime()) {
-    	log.debug("It is sunset")
+    	log.info("It is sunset")
         return true
     }
     else {
-    	log.debug("It is not sunset")
+    	log.info("It is not sunset")
     	return false
     }
 }
