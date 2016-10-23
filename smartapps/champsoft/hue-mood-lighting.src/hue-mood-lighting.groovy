@@ -17,7 +17,7 @@
  *  Date: 2014-02-21
  *
  * Edited by Champsoft 2016-10-29
- * Added the ability for each day to have its own different color
+ * Added the ability for each day to have its own different predefined color and saturation
  */
 definition(
     name: "Hue Mood Lighting",
@@ -43,9 +43,11 @@ preferences {
 def colorSelectPage() {
 	dynamicPage(name: "colorSelectPage") {
     	section {
-    		days.each {day ->
+    		days.each { day ->
         		input "$day", "enum", title: "Select a color for $day", required: false, 
-                	options: ["Red", "Yellow", "Pink", "Green", "Orange", "Blue", "Purple"]} 
+                	options: ["Red", "Yellow", "Pink", "Green", "Orange", "Blue", "Purple"]
+                input "saturation$day", "number", title: "Saturation Level for $day?", description: "Between 1 and 100", required: false
+            }
         }
     }
 }
@@ -98,7 +100,7 @@ def mainPage() {
 		section("Choose light effects...")
 			{
 				input "lightLevel", "enum", title: "Light Level?", required: false, options: [[10:"10%"],[20:"20%"],[30:"30%"],[40:"40%"],[50:"50%"],[60:"60%"],[70:"70%"],[80:"80%"],[90:"90%"],[100:"100%"]]
-				input "saturationLevel", "number", title: "Saturation Level?", description: "Between 1 and 100", required: false
+				//input "saturationLevel", "number", title: "Saturation Level?", description: "Between 1 and 100", required: false
                 
             }
 		section("More options", hideable: true, hidden: true) {
@@ -247,40 +249,47 @@ private takeAction(evt) {
 	switch(settings[state.today]) {
 		case "White":
 			hueColor = 52
-			saturation = 19
+			saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : 19
 			break;
 		case "Daylight":
 			hueColor = 53
-			saturation = 91
+			saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : 91
 			break;
 		case "Soft White":
 			hueColor = 23
-			saturation = 56
+			saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : 56
 			break;
 		case "Warm White":
 			hueColor = 20
-			saturation = 80 
+			saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : 80 
 			break;
 		case "Blue":
 			hueColor = 70
+            saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : saturation
 			break;
 		case "Green":
 			hueColor = 39
+            saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : saturation
             break;
 		case "Yellow":
 			hueColor = 25
+            saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : saturation
 			break;
 		case "Orange":
 			hueColor = 10
+            saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : saturation
 			break;
 		case "Purple":
 			hueColor = 75
+            saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : saturation
 			break;
 		case "Pink":
 			hueColor = 83
+            saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : saturation
 			break;
 		case "Red":
 			hueColor = 100
+            saturation = settings["saturation" + state.today] ? settings["saturation" + state.today] : saturation
 			break;
         default:
         	//Daylight
@@ -288,8 +297,8 @@ private takeAction(evt) {
 			saturation = 91
 	}
     
-    if(saturationLevel) 
-    	saturation = saturationLevel
+    //if(saturationLevel) 
+    	//saturation = saturationLevel
 
 	state.previous = [:]
 
