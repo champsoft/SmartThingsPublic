@@ -54,7 +54,9 @@ def colorSelectPage() {
 
 def mainPage() {
 	dynamicPage(name: "mainPage") {
-
+		section("Enable app...") {
+    		input "appEnabled", "bool", title: "Enable this app", required: true, defaultValue: true
+    	}
 		def anythingSet = anythingSet()
 		if (anythingSet) {
 			section("Set the lighting mood when..."){
@@ -296,27 +298,26 @@ private takeAction(evt) {
         	hueColor = 53
 			saturation = 91
 	}
-    
-    //if(saturationLevel) 
-    	//saturation = saturationLevel
 
-	state.previous = [:]
+	if(appEnabled) {
+		state.previous = [:]
 
-	hues.each {
-		state.previous[it.id] = [
-			"switch": it.currentValue("switch"),
-			"level" : it.currentValue("level"),
-			"hue": it.currentValue("hue"),
-			"saturation": it.currentValue("saturation")
-		]
-	}
+		hues.each {
+			state.previous[it.id] = [
+				"switch": it.currentValue("switch"),
+				"level" : it.currentValue("level"),
+				"hue": it.currentValue("hue"),
+				"saturation": it.currentValue("saturation")
+			]
+		}
 
-	log.debug "current values = $state.previous"
+		log.debug "current values = $state.previous"
 
-	def newValue = [hue: hueColor, saturation: saturation, level: lightLevel as Integer ?: 100]
-	log.debug "new value = $newValue"
+		def newValue = [hue: hueColor, saturation: saturation, level: lightLevel as Integer ?: 100]
+		log.debug "new value = $newValue"
 
-	hues*.setColor(newValue)
+		hues*.setColor(newValue)
+    }
 }
 
 private frequencyKey(evt) {
