@@ -11,7 +11,7 @@
 definition(
     name: "Switch Off with No Motion or Presence",
     namespace: "champsoft",
-    author: "Bruce Adelsman",
+    author: "pchampsoft",
     description: "Turn Switches off when no motion or presence is detected for a set period of time.",
     category: "Convenience",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/Meta/light_presence-outlet.png",
@@ -32,32 +32,43 @@ preferences {
 }
 
 def installed() {
-	subscribe(motionSensors, "motion", motionHandler)
-    if(presenceSensors) {
-		subscribe(presenceSensors, "presence", presenceHandler)
-	}
+	initialize()
 }
 
 def updated() {
 	unsubscribe()
-	subscribe(motionSensors, "motion", motionHandler)
+    unschedule()
+	initialize()
+}
+
+def initialize() {
+	//subscribe(switches, "switch", switchHandler)
+	//subscribe(motionSensors, "motion", motionHandler)
     if(presenceSensors) {
-		subscribe(presenceSensors, "presence", presenceHandler)
+		//subscribe(presenceSensors, "presence", presenceHandler)
 	}
+	schedule("0 0/$delayMins * * * ?", scheduleCheck)
+}
+
+def switchHandler(evt) {
+	log.debug "handler for $evt.displayName -> $evt.name: $evt.value"
+	/*if (evt.value == "on") {
+		runIn(delayMins * 60, scheduleCheck)
+	}*/
 }
 
 def motionHandler(evt) {
-	log.debug "handler for $evt.displayName -> $evt.name: $evt.value"
-	if (evt.value == "inactive") {
+	//log.debug "handler for $evt.displayName -> $evt.name: $evt.value"
+	/*if (evt.value == "inactive") {
 		runIn(delayMins * 60, scheduleCheck)
-	}
+	}*/
 }
 
 def presenceHandler(evt) {
-	log.debug "handler $evt.name: $evt.value"
-	if (evt.value == "not present") {
+	//log.debug "handler $evt.name: $evt.value"
+	/*if (evt.value == "not present") {
 		runIn(delayMins * 60, scheduleCheck, [overwrite: false])
-	}
+	}*/
 }
 
 def isActivePresence() {
@@ -69,7 +80,7 @@ def isActivePresence() {
 }
 
 def scheduleCheck() {
-	log.debug "scheduled check"
+	log.debug "Scheduled $delayMins minute check for no motion"
     
     def allInactive = true
     def latestTime = 0
@@ -93,11 +104,14 @@ def scheduleCheck() {
 
     	if (elapsed >= threshold) {
 			if (!isActivePresence()) {
-				log.debug "Motion has stayed inactive since last check ($elapsed ms) and no presence:  turning switches off"
+				log.debug "Motion has stayed inactive since last check ($elapsed ms) and no presence: attempting to turn switches off"
                 switches.findAll {
                 	if (it.currentSwitch == "on") {
                     	log.debug "Turning off switch: ${it.label}"
   	                 	it.off()
+                    }
+                    else {
+                    	log.debug "Switch: ${it.label} is already off. No action taken."
                     }
                }
 			}
