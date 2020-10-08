@@ -1,7 +1,7 @@
 /**
  *  Lights Off with No Motion and Presence
  *
- *  Author: Bruce Adelsman
+ *  Author: P Champsoft
  */
 
 /**
@@ -42,10 +42,10 @@ def updated() {
 }
 
 def initialize() {
-	//subscribe(switches, "switch", switchHandler)
-	//subscribe(motionSensors, "motion", motionHandler)
+	/*subscribe(switches, "switch", switchHandler)
+	subscribe(motionSensors, "motion", motionHandler)*/
     if(presenceSensors) {
-		//subscribe(presenceSensors, "presence", presenceHandler)
+		subscribe(presenceSensors, "presence", presenceHandler)
 	}
 	schedule("0 0/$delayMins * * * ?", scheduleCheck)
 }
@@ -65,10 +65,10 @@ def motionHandler(evt) {
 }
 
 def presenceHandler(evt) {
-	//log.debug "handler $evt.name: $evt.value"
-	/*if (evt.value == "not present") {
+	log.debug "handler $evt.name: $evt.value"
+	if (evt.value == "not present") {
 		runIn(delayMins * 60, scheduleCheck, [overwrite: false])
-	}*/
+	}
 }
 
 def isActivePresence() {

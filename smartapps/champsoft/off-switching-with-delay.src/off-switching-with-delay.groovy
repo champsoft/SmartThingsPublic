@@ -39,6 +39,9 @@ preferences {
     section("Trigger State that triggers the delay") {
     		input "triggerState", "bool", title: "OFF or ON?", required: true, defaultValue: false
     }
+    section("Do not turn off device if it was initially ON") {
+    		input "targetStaysOn", "bool", title: "Do not turn OFF", required: true, defaultValue: false
+    }
 }
 
 def installed() {
@@ -57,9 +60,11 @@ def updated() {
 def initialize() {
 	subscribe(triggerSwitch, "switch.on", switchOnHandler)
     subscribe(triggerSwitch, "switch.off", switchOffHandler)
-    //state to indicate when the timer was initiated when the trigger device was switched on
-    if(atomicState.isProcessed == null)
-    	atomicState.isProcessed = false
+    //state to indicate that the timer was initiated when the trigger device was switched on
+    if(atomicState.timerTriggered == null)
+    	atomicState.timerTriggered = false
+    if(atomicState.alreadyOn == null)    
+     	atomicState.alreadyOn = false
 }
 
 def switchOnHandler(evt) {
@@ -69,22 +74,35 @@ def switchOnHandler(evt) {
         log.trace "Turning switches ON."
     }
     //If user selects the trigger device's ON state to start the target's OFF timer
-    if(triggerState) {
-    	atomicState.isProcessed = true
+    if(settings.triggerState) {
+    	atomicState.timerTriggered = true
     	switchOffHandler(evt)
     }
 }
 
 def switchOffHandler(evt) {
-	if(evt.value == "off" && atomicState.isProcessed == true) {
+	//thread.sleep for 2 seconds here?
+    
+    log.info "Switch OFF handler executing..."
+
+	if(evt.value == "off" && atomicState.timerTriggered == true) {
     	log.trace "Attempt made to turn off switch while it may already be on a schedule. Cancelling any schedules... "
     	unschedule(turnSwitchesOff)
-        atomicState.isProcessed = false
-        return
+        atomicState.timerTriggered = false
+        //return
     }
-    
-    runIn(delay, turnSwitchesOff)
-   	log.trace "Starting OFF timer from event ${evt.value}"
+    else if(evt.value == "off" && atomicState.alreadyOn == true && settings.targetStaysOn)
+    {
+		log.trace "Attempt made to turn off switch. User requests that it stays on if it was initially on. Cancelling any schedules... "
+    	unschedule(turnSwitchesOff)
+        atomicState.alreadyOn = false
+        atomicState.timerTriggered = false
+        //return
+    }
+    else {
+    	runIn(delay, turnSwitchesOff)
+   		log.trace "Starting OFF timer from event ${evt.value}"
+    }    
 }
 
 def turnSwitchesOn() {
@@ -96,18 +114,21 @@ def turnSwitchesOn() {
         	log.debug "Switching ON: ${it.label}"
   	    	it.on()
        	}
-        else
+        else {
         	log.debug "Switch $it.label is already on, Do nothing."
+        	atomicState.alreadyOn = true
+        }
     }
 }
 
 def turnSwitchesOff() {
-	targetSwitches.findAll {
+ 	targetSwitches.findAll {
     	if (it.currentSwitch == "on") {
         	log.debug "Switching OFF: ${it.label}"
   	       	it.off()
        	 }
-        else
+        else 
         	log.debug "Switch $it.label is already off, do nothing with it"
     }
+    atomicState.alreadyOn = false
 }
